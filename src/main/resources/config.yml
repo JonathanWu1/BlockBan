@@ -1,0 +1,12 @@
+# Get the bukkit block ids here
+# https://hub.spigotmc.org/javadocs/bukkit/org/bukkit/Material.html
+
+#Example
+#
+#flags:
+#  - flag_name:
+#       default break: true
+#       default place: true
+#       BLOCK_ID:
+#           break: false
+#           place: true

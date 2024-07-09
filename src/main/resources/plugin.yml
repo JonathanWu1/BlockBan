@@ -1,0 +1,13 @@
+name: BlockBan
+version: 1.0.0
+main: io.papermc.blockBan.BlockBan
+description: An example plugin
+author: PaperMC
+website: https://papermc.io
+api-version: '1.21'
+depend: [WorldGuard, LuckPerms]
+commands:
+  blockban:
+    description: Reload Config.yml
+    usage: /<command>
+    permission: BlockBan.ReloadConfig
