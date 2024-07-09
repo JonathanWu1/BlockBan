@@ -111,22 +111,6 @@ public class BlockBan extends JavaPlugin implements Listener, CommandExecutor {
                 case "reload":
                     this.reloadConfig();
                     sender.sendMessage("Config Reloaded");
-                    var keys = getAvailableFlags();
-                    if(keys != null && AvailableFlags != null)
-                    {
-                        if(keys.size() != AvailableFlags.size())
-                        {
-                            sender.sendMessage("New flags found in the config, please restart the server to load them into worldguard");
-                        }
-                        getLogger().info(keys.toString());
-                        getLogger().info(AvailableFlags.toString());
-                        keys.removeAll(AvailableFlags);
-                        getLogger().info(keys.toString());
-                        if(!keys.isEmpty())
-                        {
-                            sender.sendMessage("New flags found in the config, please restart the server to load them into worldguard");
-                        }
-                    }
                     break;
                 case "list":
                     sender.sendMessage("Available BanGroups: \n" + String.join("\n", AvailableFlags));
