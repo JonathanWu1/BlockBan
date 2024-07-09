@@ -28,10 +28,10 @@ flags:
        place: true
 ```
 ### Config.yml
-<flag_name> : Name of the flag, this is used to set the flag in Worldguard as well as the perm in Luckperms
-default break: default value to allow(true) or disallow(false) breaking for all blocks
-default place: default value to allow(true) or disallow(false) for all blocks
-<BLOCK_ID> : the spigot block Id, this will override the default break/place values.
+`<flag_name>` : Name of the flag, this is used to set the flag in Worldguard as well as the perm in Luckperms\n
+`default break`: default value to allow(true) or disallow(false) breaking for all blocks\n
+`default place`: default value to allow(true) or disallow(false) for all blocks\n
+`<BLOCK_ID>` : the spigot block Id, this will override the default break/place values\n
 
 ### WorldGuard
 Set the flag for a region using /rg flag -w <world_name> <region_name> BanBlocks <flag_name>
