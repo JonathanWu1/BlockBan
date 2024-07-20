@@ -14,14 +14,17 @@ import org.bukkit.block.Block;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.block.BlockEvent;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.w3c.dom.events.Event;
 
 import java.nio.file.attribute.AttributeView;
+import java.util.HashSet;
 import java.util.Set;
 
 //Call it BlockBan or BlockGuard
@@ -37,26 +40,24 @@ import java.util.Set;
 public class BlockBan extends JavaPlugin implements Listener, CommandExecutor {
     private StringFlag FLAG_KEY;
     private Set<String> AvailableFlags = null;
+    private static final String LUCKPERMS_BASE = "blockban.";
+
+    private boolean Debug = false;
     @Override
     public void onLoad(){
-        FlagRegistry registry = WorldGuard.getInstance().getFlagRegistry();
-        String key = "BanBlocks";
-        try {
-            // create a flag with the name "my-custom-flag", defaulting to true
-            StringFlag flag = new StringFlag(key);
-            registry.register(flag);
-            FLAG_KEY = flag;
-        } catch (FlagConflictException e) {
-            getLogger().warning("Another plugin is using the flag " + key + "please use another name");
-        }
+        registerFlag();
     }
 
     @Override
     public void onEnable() {
+        //Register Event Handler
         Bukkit.getPluginManager().registerEvents(this, this);
         this.getCommand("blockban").setExecutor(this);
         this.saveDefaultConfig();
-        var keys = getAvailableFlags();
+
+        Debug = this.getConfig().getBoolean("debug");
+
+        var keys = Helper.getFlags(this.getConfig());
         if(keys != null)
         {
             for(var key : keys){
@@ -65,43 +66,6 @@ public class BlockBan extends JavaPlugin implements Listener, CommandExecutor {
             AvailableFlags = keys;
         }
     }
-
-    private Set<String> getAvailableFlags(){
-        Set<String> keys = null;
-
-        var config = this.getConfig().getConfigurationSection("flags");
-        if(config == null)
-        {
-            return null;
-        }
-        keys = config.getKeys(false);
-        return keys;
-    }
-    private Set<ProtectedRegion> getRegions(BlockEvent event){
-        RegionContainer container = WorldGuard.getInstance().getPlatform().getRegionContainer();
-        RegionQuery query = container.createQuery();
-        ApplicableRegionSet set = query.getApplicableRegions(BukkitAdapter.adapt(event.getBlock().getLocation().toBlockLocation()));
-        return set.getRegions();
-    }
-    private String getDefaultPlacementValuePath(String flagName){
-//        getLogger().info("flags."+ flagName + ".default place");
-        return "flags."+ flagName + ".default place";
-    }
-    private String getDefaultBreakValuePath(String flagName){
-//        getLogger().info("flags."+ flagName + ".default break");
-        return "flags."+ flagName + ".default break";
-    }
-    private String getPlacementValuePath(String flagName, Block block)
-    {
-//        getLogger().info("flags."+ flagName + "." + block.getType() + ".place");
-        return "flags."+ flagName + "." + block.getType() + ".place";
-    }
-    private String getBreakValuePath(String flagName, Block block)
-    {
-//        getLogger().info("flags."+ flagName + "." + block.getType() + ".break");
-        return "flags."+ flagName + "." + block.getType() + ".break";
-    }
-
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if(label.equals("blockban"))
@@ -119,31 +83,119 @@ public class BlockBan extends JavaPlugin implements Listener, CommandExecutor {
         }
         return true;
     }
+    public boolean hasFlagOverride(Player player, String flagName){
+        return player.hasPermission(LUCKPERMS_BASE+ flagName);
+    }
+
+    public boolean preventBlockAction(BlockEvent event, Player player, BlockAction action){
+        if(Debug) {
+
+            getLogger().info(event.getBlock().getType().toString());
+        }
+        var regions = Helper.getRegions(event);
+        var block = event.getBlock();
+
+        for(var region : regions) {
+            String flagName = region.getFlag(FLAG_KEY);
+            if(region == null || flagName == null || hasFlagOverride(player, flagName)){
+                continue;
+            }
+            String defaultRegionValuePath = Helper.getKey(flagName, action);
+
+            //Specified block ids have the highest priority
+            var blockSection = this.getConfig().getConfigurationSection("flags."+ flagName + ".blocks");
+            if(Debug) {
+
+                getLogger().info("flag."+ flagName + ".blocks");
+                if(blockSection == null)
+                {
+                    getLogger().info("no block found");
+                }
+
+                else {
+                    getLogger().info(blockSection.getKeys(false).toString());
+                }
+            }
+            if(blockSection != null)
+            {
+                if(Debug) {
+                    getLogger().info("found exact match");
+                    getLogger().info(blockSection.getKeys(false).toString());
+                }
+                if(blockSection.getKeys(false).contains(block.getType().toString()))
+                {
+                    if(Debug) {
+                        getLogger().info("found block");
+                        getLogger().info(block.getType().toString() + "." + action.toString().toLowerCase());
+                    }
+                    return !blockSection.getBoolean(block.getType().toString() + "." + action.toString().toLowerCase());
+                }
+            }
+
+            //Check for patterns
+            var groupsSection = this.getConfig().getConfigurationSection("flags." + flagName + ".groups");
+            if(groupsSection != null)
+            {
+                var keys = groupsSection.getKeys(false);
+                for(var key : keys)
+                {
+                    var group = groupsSection.getConfigurationSection(key);
+                    if(group != null)
+                    {
+                        var groupKeys = group.getKeys(false);
+                        for(var groupKey : groupKeys){
+                            switch(key){
+                                case "starts with":
+                                    if(block.getType().name().startsWith(groupKey.toUpperCase()))
+                                    {
+                                        var groupAction = group.getString(Helper.getGroupKey(groupKey, action));
+                                        getLogger().info(groupAction);
+                                        if(groupAction != null){
+                                            return !Boolean.parseBoolean(groupAction);
+                                        }
+                                    }
+                                    break;
+                                case "ends with":
+                                    if(block.getType().name().endsWith(groupKey.toUpperCase()))
+                                    {
+                                        var groupAction = group.getString(Helper.getGroupKey(groupKey, action));
+                                        getLogger().info(groupAction);
+                                        if(groupAction != null){
+                                            return !Boolean.parseBoolean(groupAction);
+                                        }
+                                    }
+                                    break;
+                                case "contains":
+                                    if(block.getType().name().contains(groupKey.toUpperCase()))
+                                    {
+                                        var groupAction = group.getString(Helper.getGroupKey(groupKey, action));
+                                        getLogger().info(groupAction);
+                                        if(groupAction != null){
+                                            return !Boolean.parseBoolean(groupAction);
+                                        }
+                                    }
+                                    break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            boolean defaultRestriction = this.getConfig().getBoolean(defaultRegionValuePath);
+            if(!defaultRestriction)
+                return true;
+        }
+        return false;
+    }
+
     @EventHandler
     public void onBlockPlace(BlockPlaceEvent event) {
         if(event.getPlayer().isOp())
             return;
-        Block block = event.getBlock();
-        var regions = getRegions(event);
-        for(var region : regions) {
-            if(region == null){
-                continue;
-            }
-            var flags = region.getFlag(FLAG_KEY);
-            if(flags != null){
-                String defaultRegionValuePath = getDefaultPlacementValuePath(flags);
-                String blockPath = getPlacementValuePath(flags, block);
-                var defaultRestriction = this.getConfig().getBoolean(defaultRegionValuePath);
-                var allowBlockPlacement = this.getConfig().getBoolean(blockPath, defaultRestriction);
-                if(!allowBlockPlacement && !event.getPlayer().hasPermission("blockban." + flags))
-                {
-                    if(regions.size() > 1){
-                        getLogger().warning("Warning: Found multiple overlapping regions,using value for " + flags);
-                    }
-                    event.setCancelled(true);
-                    event.getPlayer().sendMessage("[BlockBan] This block is restricted from placement in this region.");
-                }
-            }
+        if(preventBlockAction(event, event.getPlayer(), BlockAction.PLACE))
+        {
+            event.setCancelled(true);
+            event.getPlayer().sendMessage("[BlockBan] This block is restricted from being placed in this region.");
         }
     }
 
@@ -151,28 +203,22 @@ public class BlockBan extends JavaPlugin implements Listener, CommandExecutor {
     public void onBlockBreak(BlockBreakEvent event) {
         if(event.getPlayer().isOp())
             return;
-        Block block = event.getBlock();
-        var regions = getRegions(event);
-        for(var region : regions) {
-            if(region == null){
-                continue;
-            }
-            var flags = region.getFlag(FLAG_KEY);
-            if(flags != null){
-                String defaultRegionValuePath = getDefaultBreakValuePath(flags);
-                String blockPath = getBreakValuePath(flags, block);
-                var defaultRestriction = this.getConfig().getBoolean(defaultRegionValuePath);
-                var allowBlockBreak = this.getConfig().getBoolean(blockPath, defaultRestriction);
+        if(preventBlockAction(event, event.getPlayer(), BlockAction.BREAK))
+        {
+            event.setCancelled(true);
+            event.getPlayer().sendMessage("[BlockBan] This block is restricted from being broken in this region.");
+        }
+    }
 
-                if(!allowBlockBreak && !event.getPlayer().hasPermission("blockban." + flags))
-                {
-                    if(regions.size() > 1){
-                        getLogger().warning("[Warning]: Found multiple overlapping regions,using value for " + flags);
-                    }
-                    event.setCancelled(true);
-                    event.getPlayer().sendMessage("[BlockBan] This block is restricted from breaking in this region.");
-                }
-            }
+    private void registerFlag(){
+        String key = "BanBlocks";
+        try {
+            FlagRegistry registry = WorldGuard.getInstance().getFlagRegistry();
+            StringFlag flag = new StringFlag(key);
+            registry.register(flag);
+            FLAG_KEY = flag;
+        } catch (FlagConflictException e) {
+            getLogger().warning("Another plugin is using the flag " + key + "please use another name");
         }
     }
 }

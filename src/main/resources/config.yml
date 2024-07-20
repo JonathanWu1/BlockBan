@@ -4,9 +4,31 @@
 #Example
 #
 #flags:
-#  - flag_name:
-#       default break: true
-#       default place: true
-#       BLOCK_ID:
-#           break: false
-#           place: true
+#  flag_name:
+#
+#     allow break: true
+#     allow place: true
+#     BLOCK_ID:
+#         allow break: false
+#         allow place: true
+debug: true
+flags:
+  flag_name:
+    default:
+      break: false
+      place: false
+    groups:
+      starts with:
+        red:
+          break: false
+          place: false
+      ends with:
+        stone:
+          break: false
+      contains:
+        stone:
+          break: false
+    blocks:
+      RED_CONCRETE:
+        break: true
+        place: false
