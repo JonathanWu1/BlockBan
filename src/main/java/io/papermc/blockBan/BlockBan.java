@@ -1,6 +1,10 @@
 package io.papermc.blockBan;
+import com.ibm.icu.text.Normalizer2;
 import com.sk89q.worldedit.bukkit.BukkitAdapter;
 import com.sk89q.worldguard.WorldGuard;
+import com.sk89q.worldguard.blacklist.Blacklist;
+import com.sk89q.worldguard.blacklist.event.BlockBreakBlacklistEvent;
+import com.sk89q.worldguard.bukkit.protection.events.DisallowedPVPEvent;
 import com.sk89q.worldguard.protection.ApplicableRegionSet;
 import com.sk89q.worldguard.protection.flags.*;
 import com.sk89q.worldguard.protection.flags.registry.FlagConflictException;
@@ -9,11 +13,14 @@ import com.sk89q.worldguard.protection.regions.ProtectedRegion;
 import com.sk89q.worldguard.protection.regions.RegionContainer;
 import com.sk89q.worldguard.protection.regions.RegionQuery;
 import net.luckperms.api.node.types.PermissionNode;
+import org.antlr.v4.tool.ast.ActionAST;
 import org.bukkit.Bukkit;
 import org.bukkit.block.Block;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.Configuration;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -23,9 +30,9 @@ import org.bukkit.event.block.BlockEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.w3c.dom.events.Event;
 
+import javax.management.monitor.StringMonitor;
 import java.nio.file.attribute.AttributeView;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 //Call it BlockBan or BlockGuard
 //Change to flags
@@ -42,10 +49,12 @@ public class BlockBan extends JavaPlugin implements Listener, CommandExecutor {
     private Set<String> AvailableFlags = null;
     private static final String LUCKPERMS_BASE = "blockban.";
 
+    private Dictionary<String, BanGroups> banGroupsDictionary ;
     private boolean Debug = false;
     @Override
     public void onLoad(){
         registerFlag();
+        parseConfig(); 
     }
 
     @Override
@@ -73,119 +82,73 @@ public class BlockBan extends JavaPlugin implements Listener, CommandExecutor {
             switch(args[0])
             {
                 case "reload":
-                    this.reloadConfig();
+                    reload();
                     sender.sendMessage("Config Reloaded");
                     break;
                 case "list":
-                    sender.sendMessage("Available BanGroups: \n" + String.join("\n", AvailableFlags));
+                    for (Iterator<BanGroups> it = banGroupsDictionary.elements().asIterator(); it.hasNext(); ) {
+                        var f = it.next();
+                        sender.sendMessage("--------------------");
+                        sender.sendMessage(f.getComponentString());
+                    }
                     break;
             }
         }
         return true;
     }
+    public boolean parseConfig(){
+        banGroupsDictionary = new Hashtable<>();
+
+        var flags = this.getConfig().getConfigurationSection("flags").getKeys(false);
+        getLogger().info(flags.toString());
+        for(var key : flags) {
+            var configSection = this.getConfig().getConfigurationSection("flags." + key);
+            if(configSection.getKeys(false).contains("place")) {
+                var k = getFlagKey(key, BlockAction.PLACE);
+                getLogger().info(k);
+                banGroupsDictionary.put(k, new BanGroups(k,configSection.getConfigurationSection("place")));
+            }
+            if(configSection.getKeys(false).contains("break")) {
+                var k = getFlagKey(key, BlockAction.BREAK);
+                getLogger().info(k);
+                banGroupsDictionary.put(k, new BanGroups(k, configSection.getConfigurationSection("break")));
+            }
+        }
+        return true;
+        
+    } 
+    public boolean reload(){
+        this.reloadConfig();
+        return parseConfig();
+    }
     public boolean hasFlagOverride(Player player, String flagName){
         return player.hasPermission(LUCKPERMS_BASE+ flagName);
     }
-
+    private String getFlagKey(String flagName, BlockAction action){
+        return flagName + "_" + action.toString().toLowerCase();
+    }
     public boolean preventBlockAction(BlockEvent event, Player player, BlockAction action){
-        if(Debug) {
-
-            getLogger().info(event.getBlock().getType().toString());
-        }
         var regions = Helper.getRegions(event);
-        var block = event.getBlock();
-
+        var blockName = event.getBlock().getType().toString();
+         
         for(var region : regions) {
+            //Check if the region has a name in the BlockBan flag if not the skip the region
             String flagName = region.getFlag(FLAG_KEY);
-            if(region == null || flagName == null || hasFlagOverride(player, flagName)){
+            var flag = banGroupsDictionary.get(getFlagKey(flagName, action));
+            if(flag == null) {
                 continue;
             }
-            String defaultRegionValuePath = Helper.getKey(flagName, action);
-
-            //Specified block ids have the highest priority
-            var blockSection = this.getConfig().getConfigurationSection("flags."+ flagName + ".blocks");
-            if(Debug) {
-
-                getLogger().info("flag."+ flagName + ".blocks");
-                if(blockSection == null)
-                {
-                    getLogger().info("no block found");
-                }
-
-                else {
-                    getLogger().info(blockSection.getKeys(false).toString());
-                }
-            }
-            if(blockSection != null)
-            {
+            
+            if(hasFlagOverride(player, flagName)){
                 if(Debug) {
-                    getLogger().info("found exact match");
-                    getLogger().info(blockSection.getKeys(false).toString());
+                    getLogger().info("User permission found");
                 }
-                if(blockSection.getKeys(false).contains(block.getType().toString()))
-                {
-                    if(Debug) {
-                        getLogger().info("found block");
-                        getLogger().info(block.getType().toString() + "." + action.toString().toLowerCase());
-                    }
-                    return !blockSection.getBoolean(block.getType().toString() + "." + action.toString().toLowerCase());
-                }
+                continue;
             }
-
-            //Check for patterns
-            var groupsSection = this.getConfig().getConfigurationSection("flags." + flagName + ".groups");
-            if(groupsSection != null)
-            {
-                var keys = groupsSection.getKeys(false);
-                for(var key : keys)
-                {
-                    var group = groupsSection.getConfigurationSection(key);
-                    if(group != null)
-                    {
-                        var groupKeys = group.getKeys(false);
-                        for(var groupKey : groupKeys){
-                            switch(key){
-                                case "starts with":
-                                    if(block.getType().name().startsWith(groupKey.toUpperCase()))
-                                    {
-                                        var groupAction = group.getString(Helper.getGroupKey(groupKey, action));
-                                        getLogger().info(groupAction);
-                                        if(groupAction != null){
-                                            return !Boolean.parseBoolean(groupAction);
-                                        }
-                                    }
-                                    break;
-                                case "ends with":
-                                    if(block.getType().name().endsWith(groupKey.toUpperCase()))
-                                    {
-                                        var groupAction = group.getString(Helper.getGroupKey(groupKey, action));
-                                        getLogger().info(groupAction);
-                                        if(groupAction != null){
-                                            return !Boolean.parseBoolean(groupAction);
-                                        }
-                                    }
-                                    break;
-                                case "contains":
-                                    if(block.getType().name().contains(groupKey.toUpperCase()))
-                                    {
-                                        var groupAction = group.getString(Helper.getGroupKey(groupKey, action));
-                                        getLogger().info(groupAction);
-                                        if(groupAction != null){
-                                            return !Boolean.parseBoolean(groupAction);
-                                        }
-                                    }
-                                    break;
-                            }
-                        }
-                    }
-                }
-            }
-
-            boolean defaultRestriction = this.getConfig().getBoolean(defaultRegionValuePath);
-            if(!defaultRestriction)
-                return true;
+                 
+            return flag.preventPlacement(blockName);
         }
-        return false;
+        return false; 
     }
 
     @EventHandler
@@ -211,7 +174,7 @@ public class BlockBan extends JavaPlugin implements Listener, CommandExecutor {
     }
 
     private void registerFlag(){
-        String key = "BanBlocks";
+        String key = "BlockBan";
         try {
             FlagRegistry registry = WorldGuard.getInstance().getFlagRegistry();
             StringFlag flag = new StringFlag(key);

@@ -3,15 +3,21 @@ package io.papermc.blockBan;
 import com.sk89q.worldedit.bukkit.BukkitAdapter;
 import com.sk89q.worldguard.WorldGuard;
 import com.sk89q.worldguard.protection.ApplicableRegionSet;
+import com.sk89q.worldguard.protection.flags.StringFlag;
 import com.sk89q.worldguard.protection.regions.ProtectedRegion;
 import com.sk89q.worldguard.protection.regions.RegionContainer;
 import com.sk89q.worldguard.protection.regions.RegionQuery;
 import org.bukkit.block.Block;
+import org.bukkit.configuration.Configuration;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.event.block.BlockEvent;
 import org.jetbrains.annotations.NotNull;
 
+import java.sql.Ref;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 public class Helper {
@@ -32,17 +38,20 @@ public class Helper {
 
         return keys;
     }
-    public static String getGroups(String key){ //        getLogger().info("flags."+ flagName + ".default place");
-        return String.format("flags.%s.groups.", key);
+    public static PermissionMode getMode(String mode){
+        mode = mode.toUpperCase().trim();
+        if(Objects.equals(mode, PermissionMode.BLACKLIST.toString())) return PermissionMode.BLACKLIST;
+        else if(Objects.equals(mode, PermissionMode.WHITELIST.toString())) return PermissionMode.WHITELIST;
+        else return PermissionMode.NONE;
     }
-    public static String getGroupKey(String key,BlockAction action) {
-        return String.format("%s.%s", key, action.toString().toLowerCase());
-    }
-    public static String getKey(String flagName, BlockAction action){ //        getLogger().info("flags."+ flagName + ".default place");
-        return String.format("flags.%s.default.%s", flagName, action.toString().toLowerCase());
-    }
-    public static String getKey(String flagName, BlockAction action, Block block)
+    public static ConfigurationSection getBlocksSection(Configuration config, String flagName, BlockAction action)
     {
-        return String.format("flags.%s.%s.%s", flagName, block.getType().toString().toUpperCase(), action.toString().toLowerCase());
+        return config.getConfigurationSection(String.format("flags.%s.%s", flagName, action.toString().toLowerCase()));
     }
+
+    public static ConfigurationSection getBanGroup(Configuration config, String flagName, BlockAction action, BanGroups group)
+    {
+        return config.getConfigurationSection(String.format("flags.%s.%s.%s", flagName, action.toString().toLowerCase(), group.toString().toLowerCase().replace("_", " ")));
+    }
+    
 }

@@ -14,21 +14,32 @@
 debug: true
 flags:
   flag_name:
-    default:
-      break: false
-      place: false
-    groups:
+    place:
+      mode: blacklist
       starts with:
-        red:
-          break: false
-          place: false
+        - red #ex: players will not be able to place "redstone block" 
+        - green
       ends with:
-        stone:
-          break: false
+        - shulker_box #ex: players will not be able to place "green shulker box"
+        - chest
       contains:
-        stone:
-          break: false
-    blocks:
-      RED_CONCRETE:
-        break: true
-        place: false
+        - oak #ex: players will not be able to place "dark oak planks"
+        - spruce
+      blocks:
+        - blue_concrete #ex: players will not be able to place "blue concrete"
+        - white_concrete
+    
+    break:
+      mode: whitelist 
+      starts with:
+        - red #ex: players will not be able to break "redstone block" 
+        - green
+      ends with:
+        - shulker_box #ex: players will not be able to break "green shulker box"
+        - chest
+      contains:
+        - oak #ex: players will not be able to break "dark oak planks"
+        - spruce
+      blocks:
+        - blue_concrete #ex: players will not be able to break "blue concrete"
+        - white_concrete
