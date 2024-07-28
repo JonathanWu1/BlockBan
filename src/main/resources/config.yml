@@ -26,8 +26,8 @@ flags:
         - oak #ex: players will not be able to place "dark oak planks"
         - spruce
       blocks:
-        - blue_concrete #ex: players will not be able to place "blue concrete"
-        - white_concrete
+        - BLUE_CONCRETE #ex: players will not be able to place "blue concrete"
+        - WHITE_CONCRETE
     
     break:
       mode: whitelist 
@@ -41,5 +41,5 @@ flags:
         - oak #ex: players will not be able to break "dark oak planks"
         - spruce
       blocks:
-        - blue_concrete #ex: players will not be able to break "blue concrete"
-        - white_concrete
+        - BLUE_CONCRETE #ex: players will not be able to break "blue concrete"
+        - WHITE_CONCRETE

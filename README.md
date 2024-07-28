@@ -11,25 +11,38 @@ You can find the Spigot block ids here: [Block Ids](https://hub.spigotmc.org/jav
 ```
 debug: true
 flags:
-  <flag name>:
-    default:
-      break: false
-      place: false
-    groups:
+  flag_name:
+    place:
+      mode: blacklist
       starts with:
-        <some string>:
-            break: false
-            place: false
+        - red #ex: players will not be able to place "redstone block" 
+        - green
       ends with:
-        <some string>:
-            break: false
+        - shulker_box #ex: players will not be able to place "green shulker box"
+        - chest
       contains:
-        <some string>:
-            break: false
-    blocks:
-      <BLOCK_ID>:
-        break: true
-        place: false
+        - oak #ex: players will not be able to place "dark oak planks"
+        - spruce
+      blocks:
+        - <BLOCK_ID>
+        - BLUE_CONCRETE #ex: players will not be able to place "blue concrete"
+        - WHITE_CONCRETE
+    
+    break:
+      mode: whitelist 
+      starts with:
+        - red #ex: players will only be able to break "redstone block" 
+        - green
+      ends with:
+        - shulker_box #ex: players will only be able to break "green shulker box"
+        - chest
+      contains:
+        - oak #ex: players willot only be able to break "dark oak planks"
+        - spruce
+      blocks:
+        - BLUE_CONCRETE #ex: players will only be able to break "blue concrete"
+        - WHITE_CONCRETE
+
 ```
 ### Config.yml
 `<flag_name>` : Name of the flag, this is used to set the flag in Worldguard as well as the perm in Luckperms
