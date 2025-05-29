@@ -4,6 +4,7 @@ import com.sk89q.worldedit.bukkit.BukkitAdapter;
 import com.sk89q.worldguard.WorldGuard;
 import com.sk89q.worldguard.blacklist.Blacklist;
 import com.sk89q.worldguard.blacklist.event.BlockBreakBlacklistEvent;
+import com.sk89q.worldguard.bukkit.event.block.UseBlockEvent;
 import com.sk89q.worldguard.bukkit.protection.events.DisallowedPVPEvent;
 import com.sk89q.worldguard.protection.ApplicableRegionSet;
 import com.sk89q.worldguard.protection.flags.*;
@@ -15,7 +16,9 @@ import com.sk89q.worldguard.protection.regions.RegionQuery;
 import net.luckperms.api.node.types.PermissionNode;
 import org.antlr.v4.tool.ast.ActionAST;
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.block.Block;
+import org.bukkit.block.data.type.Candle;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -24,9 +27,9 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.block.BlockBreakEvent;
-import org.bukkit.event.block.BlockPlaceEvent;
-import org.bukkit.event.block.BlockEvent;
+import org.bukkit.event.block.*;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.w3c.dom.events.Event;
 
@@ -155,10 +158,14 @@ public class BlockBan extends JavaPlugin implements Listener, CommandExecutor {
     public void onBlockPlace(BlockPlaceEvent event) {
         if(event.getPlayer().isOp())
             return;
+
+        if (event.getBlockPlaced().getBlockData() instanceof Candle candle && candle.isLit())
+            return;
+
         if(preventBlockAction(event, event.getPlayer(), BlockAction.PLACE))
         {
             event.setCancelled(true);
-            event.getPlayer().sendMessage("[BlockBan] This block is restricted from being placed in this region.");
+            event.getPlayer().sendMessage("§4[BlockBan] §fThis block is restricted from being placed in this region.");
         }
     }
 
@@ -166,10 +173,11 @@ public class BlockBan extends JavaPlugin implements Listener, CommandExecutor {
     public void onBlockBreak(BlockBreakEvent event) {
         if(event.getPlayer().isOp())
             return;
+
         if(preventBlockAction(event, event.getPlayer(), BlockAction.BREAK))
         {
             event.setCancelled(true);
-            event.getPlayer().sendMessage("[BlockBan] This block is restricted from being broken in this region.");
+            event.getPlayer().sendMessage("§4[BlockBan] §fThis block is restricted from being broken in this region.");
         }
     }
 
