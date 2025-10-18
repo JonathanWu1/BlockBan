@@ -12,9 +12,9 @@ repositories {
 }
 
 dependencies {
-    compileOnly("io.papermc.paper:paper-api:1.21.6-R0.1-SNAPSHOT")
-    compileOnly("com.sk89q.worldedit:worldedit-core:7.3.13")
-    compileOnly("com.sk89q.worldguard:worldguard-bukkit:7.0.13")
+    compileOnly("io.papermc.paper:paper-api:1.21.10-R0.1-SNAPSHOT")
+    compileOnly("com.sk89q.worldedit:worldedit-core:7.3.16")
+    compileOnly("com.sk89q.worldguard:worldguard-bukkit:7.0.14")
     compileOnly("net.luckperms:api:5.5")
 }
 java{
